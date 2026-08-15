@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Finance Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💰 Personal Finance Manager</h1>
+            <p class="tagline">Track expenses, achieve savings goals, and build wealth</p>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('dashboard')">Dashboard</button>
+            <button class="tab-btn" onclick="showTab('transactions')">Transactions</button>
+            <button class="tab-btn" onclick="showTab('goals')">Savings Goals</button>
+            <button class="tab-btn" onclick="showTab('budget')">Budget</button>
+            <button class="tab-btn" onclick="showTab('analytics')">Analytics</button>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <div class="dashboard-grid">
+                <div class="card summary-card income">
+                    <h3>Total Income</h3>
+                    <p class="amount" id="total-income">$0.00</p>
+                    <span class="month-label">This Month: <span id="month-income">$0.00</span></span>
+                </div>
+                <div class="card summary-card expense">
+                    <h3>Total Expenses</h3>
+                    <p class="amount" id="total-expenses">$0.00</p>
+                    <span class="month-label">This Month: <span id="month-expenses">$0.00</span></span>
+                </div>
+                <div class="card summary-card balance">
+                    <h3>Current Balance</h3>
+                    <p class="amount" id="current-balance">$0.00</p>
+                    <span class="month-label">This Month: <span id="month-balance">$0.00</span></span>
+                </div>
+            </div>
+
+            <div class="insights-section">
+                <h2>💡 Financial Insights</h2>
+                <div id="insights-container" class="insights-grid"></div>
+            </div>
+
+            <div class="quick-add">
+                <h2>Quick Add Transaction</h2>
+                <button onclick="showTransactionModal('income')" class="btn btn-success">+ Add Income</button>
+                <button onclick="showTransactionModal('expense')" class="btn btn-danger">+ Add Expense</button>
+            </div>
+        </div>
+
+        <!-- Transactions Tab -->
+        <div id="transactions" class="tab-content">
+            <div class="section-header">
+                <h2>Transaction History</h2>
+                <button onclick="showTransactionModal('expense')" class="btn btn-primary">+ Add Transaction</button>
+            </div>
+            <div class="transactions-list" id="transactions-list"></div>
+        </div>
+
+        <!-- Savings Goals Tab -->
+        <div id="goals" class="tab-content">
+            <div class="section-header">
+                <h2>Savings Goals</h2>
+                <button onclick="showGoalModal()" class="btn btn-primary">+ New Goal</button>
+            </div>
+            <div class="goals-grid" id="goals-list"></div>
+        </div>
+
+        <!-- Budget Tab -->
+        <div id="budget" class="tab-content">
+            <div class="section-header">
+                <h2>Monthly Budget</h2>
+                <button onclick="showBudgetModal()" class="btn btn-primary">+ Set Budget</button>
+            </div>
+            <div class="budget-list" id="budget-list"></div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="analytics" class="tab-content">
+            <h2>Financial Analytics</h2>
+            <div class="analytics-grid">
+                <div class="card">
+                    <h3>Spending by Category</h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="card">
+                    <h3>Monthly Trend</h3>
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transaction Modal -->
+    <div id="transactionModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('transactionModal')">&times;</span>
+            <h2 id="modal-title">Add Transaction</h2>
+            <form id="transaction-form">
+                <input type="hidden" id="transaction-type" name="type">
+                
+                <div class="form-group">
+                    <label for="amount">Amount ($)</label>
+                    <input type="number" id="amount" name="amount" step="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category" name="category" required>
+                        <option value="">Select category</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <input type="text" id="description" name="description">
+                </div>
+
+                <div class="form-group">
+                    <label for="date">Date</label>
+                    <input type="date" id="date" name="date" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Transaction</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Goal Modal -->
+    <div id="goalModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('goalModal')">&times;</span>
+            <h2>Add Savings Goal</h2>
+            <form id="goal-form">
+                <div class="form-group">
+                    <label for="goal-name">Goal Name</label>
+                    <input type="text" id="goal-name" name="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="goal-target">Target Amount ($)</label>
+                    <input type="number" id="goal-target" name="target_amount" step="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="goal-current">Current Amount ($)</label>
+                    <input type="number" id="goal-current" name="current_amount" step="0.01" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="goal-deadline">Deadline</label>
+                    <input type="date" id="goal-deadline" name="deadline">
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Goal</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Budget Modal -->
+    <div id="budgetModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('budgetModal')">&times;</span>
+            <h2>Set Budget</h2>
+            <form id="budget-form">
+                <div class="form-group">
+                    <label for="budget-category">Category</label>
+                    <select id="budget-category" name="category" required>
+                        <option value="">Select category</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="budget-amount">Monthly Budget ($)</label>
+                    <input type="number" id="budget-amount" name="amount" step="0.01" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Budget</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
