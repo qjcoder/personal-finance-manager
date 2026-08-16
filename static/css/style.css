@@ -55,6 +55,39 @@ header h1 {
     font-size: 1.1rem;
 }
 
+.currency-picker {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.currency-picker label {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.currency-picker input[type="search"],
+.currency-picker select {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.currency-picker input[type="search"] {
+    min-width: 240px;
+}
+
+.currency-picker select {
+    min-width: 280px;
+    max-width: 100%;
+}
+
 /* Tabs */
 .tabs {
     display: flex;

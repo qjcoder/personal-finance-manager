@@ -1,0 +1,36 @@
+{
+  "appId": "com.tarteeb.app",
+  "appName": "Tarteeb",
+  "webDir": "dist",
+  "backgroundColor": "#0B1638",
+  "server": {
+    "url": "http://192.168.100.28:5173",
+    "cleartext": true
+  },
+  "ios": {
+    "contentInset": "never",
+    "preferredContentMode": "mobile",
+    "backgroundColor": "#0B1638",
+    "scrollEnabled": false
+  },
+  "android": {
+    "backgroundColor": "#0B1638",
+    "allowMixedContent": true,
+    "zoomEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 900,
+      "launchAutoHide": true,
+      "backgroundColor": "#0B1638",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#0B1638"
+    },
+    "Keyboard": {
+      "resize": "body"
+    }
+  }
+}

@@ -39,9 +39,18 @@ def transactions():
         return jsonify({'id': transaction_id, 'message': 'Transaction added successfully'})
 
 
-@app.route('/api/transactions/<int:transaction_id>', methods=['DELETE'])
-def delete_transaction(transaction_id):
-    """Delete a transaction"""
+@app.route('/api/transactions/<int:transaction_id>', methods=['PUT', 'DELETE'])
+def mutate_transaction(transaction_id):
+    if request.method == 'PUT':
+        data = request.json or {}
+        db.update_transaction(
+            transaction_id,
+            amount=float(data['amount']),
+            category=data['category'],
+            description=data.get('description', ''),
+            date=data.get('date', datetime.now().strftime('%Y-%m-%d'))
+        )
+        return jsonify({'message': 'Transaction updated'})
     db.delete_transaction(transaction_id)
     return jsonify({'message': 'Transaction deleted successfully'})
 
@@ -102,6 +111,7 @@ def monthly_trend():
 @app.route('/api/analytics/insights')
 def get_insights():
     """Get personalized financial insights and recommendations"""
+    currency = request.args.get('currency', 'PKR')
     insights = []
     summary = db.get_summary()
     spending = db.get_spending_by_category()
@@ -132,7 +142,7 @@ def get_insights():
             insights.append({
                 'type': 'info',
                 'title': 'Top Spending Category',
-                'message': f'You spend the most on {top_category["category"]}: ${top_category["amount"]:.2f}',
+                'message': f'You spend the most on {top_category["category"]}: {currency} {top_category["amount"]:.2f}',
                 'tip': 'Review if this spending aligns with your priorities and budget.'
             })
     
@@ -142,7 +152,7 @@ def get_insights():
         insights.append({
             'type': 'warning',
             'title': 'High Recent Spending',
-            'message': f'You\'ve spent ${recent_expenses:.2f} in the last 7 days.',
+            'message': f'You\'ve spent {currency} {recent_expenses:.2f} in the last 7 days.',
             'tip': 'Consider reviewing recent purchases and planning ahead to avoid overspending.'
         })
     
@@ -164,6 +174,26 @@ def budget():
             period=data.get('period', 'monthly')
         )
         return jsonify({'id': budget_id, 'message': 'Budget set successfully'})
+
+
+@app.route('/api/profile', methods=['GET', 'PUT'])
+def profile():
+    if request.method == 'GET':
+        return jsonify(db.get_profile())
+    data = request.json or {}
+    return jsonify(db.save_profile(data))
+
+
+@app.route('/api/backup', methods=['GET', 'PUT'])
+def backup():
+    if request.method == 'GET':
+        return jsonify(db.export_backup())
+    payload = request.json or {}
+    try:
+        restored = db.restore_backup(payload)
+        return jsonify({'message': 'Backup restored', 'backup': restored})
+    except ValueError as err:
+        return jsonify({'error': str(err)}), 400
 
 
 if __name__ == '__main__':

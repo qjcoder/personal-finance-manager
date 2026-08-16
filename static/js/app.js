@@ -12,6 +12,94 @@ const INCOME_CATEGORIES = [
     'Salary', 'Freelance', 'Business', 'Investment', 'Gift', 'Other'
 ];
 
+const CURRENCY_STORAGE_KEY = 'pfm-currency-v2';
+let selectedCurrency = { country: 'Pakistan', code: 'PKR', locale: 'ur-PK' };
+
+function loadSavedCurrency() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(CURRENCY_STORAGE_KEY));
+        if (saved && saved.code && saved.country) {
+            selectedCurrency = saved;
+        }
+    } catch (e) {
+        // keep default
+    }
+}
+
+function saveCurrency() {
+    localStorage.setItem(CURRENCY_STORAGE_KEY, JSON.stringify(selectedCurrency));
+}
+
+function formatMoney(amount) {
+    const value = Number(amount) || 0;
+    try {
+        return new Intl.NumberFormat(selectedCurrency.locale, {
+            style: 'currency',
+            currency: selectedCurrency.code
+        }).format(value);
+    } catch (e) {
+        return `${selectedCurrency.code} ${value.toFixed(2)}`;
+    }
+}
+
+function populateCurrencySelect(filter = '') {
+    const select = document.getElementById('currency-select');
+    const query = filter.trim().toLowerCase();
+    const matches = COUNTRIES.filter(item =>
+        !query ||
+        item.country.toLowerCase().includes(query) ||
+        item.code.toLowerCase().includes(query)
+    );
+
+    select.innerHTML = matches.map((item, index) => {
+        const value = `${item.country}|${item.code}|${item.locale}`;
+        const selected = item.country === selectedCurrency.country && item.code === selectedCurrency.code;
+        return `<option value="${value}" ${selected ? 'selected' : ''}>${item.country} (${item.code})</option>`;
+    }).join('');
+
+    if (!select.value && matches.length) {
+        select.selectedIndex = 0;
+    }
+}
+
+function updateCurrencyLabels() {
+    document.querySelectorAll('.currency-code').forEach(el => {
+        el.textContent = selectedCurrency.code;
+    });
+}
+
+function applyCurrencySelection() {
+    const select = document.getElementById('currency-select');
+    const [country, code, locale] = select.value.split('|');
+    selectedCurrency = { country, code, locale };
+    saveCurrency();
+    updateCurrencyLabels();
+    loadDashboard();
+    loadTransactions();
+    loadSavingsGoals();
+    loadBudgets();
+    const analyticsTab = document.getElementById('analytics');
+    if (analyticsTab && analyticsTab.classList.contains('active')) {
+        loadAnalytics();
+    }
+}
+
+function initCurrencySelector() {
+    loadSavedCurrency();
+    populateCurrencySelect();
+
+    const select = document.getElementById('currency-select');
+    const search = document.getElementById('currency-search');
+    const currentValue = `${selectedCurrency.country}|${selectedCurrency.code}|${selectedCurrency.locale}`;
+    if ([...select.options].some(opt => opt.value === currentValue)) {
+        select.value = currentValue;
+    }
+
+    search.addEventListener('input', () => populateCurrencySelect(search.value));
+    select.addEventListener('change', applyCurrencySelection);
+    updateCurrencyLabels();
+}
+
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     initApp();
@@ -22,6 +110,8 @@ function initApp() {
     // Set today's date as default
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('date').value = today;
+
+    initCurrencySelector();
     
     // Load initial data
     loadDashboard();
@@ -70,13 +160,13 @@ async function loadDashboard() {
         const data = await response.json();
         
         // Update summary cards
-        document.getElementById('total-income').textContent = `$${data.income.toFixed(2)}`;
-        document.getElementById('total-expenses').textContent = `$${data.expenses.toFixed(2)}`;
-        document.getElementById('current-balance').textContent = `$${data.balance.toFixed(2)}`;
+        document.getElementById('total-income').textContent = formatMoney(data.income);
+        document.getElementById('total-expenses').textContent = formatMoney(data.expenses);
+        document.getElementById('current-balance').textContent = formatMoney(data.balance);
         
-        document.getElementById('month-income').textContent = `$${data.month_income.toFixed(2)}`;
-        document.getElementById('month-expenses').textContent = `$${data.month_expenses.toFixed(2)}`;
-        document.getElementById('month-balance').textContent = `$${data.month_balance.toFixed(2)}`;
+        document.getElementById('month-income').textContent = formatMoney(data.month_income);
+        document.getElementById('month-expenses').textContent = formatMoney(data.month_expenses);
+        document.getElementById('month-balance').textContent = formatMoney(data.month_balance);
         
         // Load insights
         loadInsights();
@@ -87,7 +177,7 @@ async function loadDashboard() {
 
 async function loadInsights() {
     try {
-        const response = await fetch(`${API_BASE}/analytics/insights`);
+        const response = await fetch(`${API_BASE}/analytics/insights?currency=${encodeURIComponent(selectedCurrency.code)}`);
         const insights = await response.json();
         
         const container = document.getElementById('insights-container');
@@ -130,7 +220,7 @@ async function loadTransactions() {
                     <div class="transaction-date">${formatDate(t.date)}</div>
                 </div>
                 <div class="transaction-amount ${t.type}">
-                    ${t.type === 'income' ? '+' : '-'}$${t.amount.toFixed(2)}
+                    ${t.type === 'income' ? '+' : '-'}${formatMoney(t.amount)}
                 </div>
                 <button class="transaction-delete" onclick="deleteTransaction(${t.id})">Delete</button>
             </div>
@@ -227,7 +317,7 @@ async function loadSavingsGoals() {
                     </div>
                 </div>
                 <div class="goal-amounts">
-                    <span>$${goal.current_amount.toFixed(2)} / $${goal.target_amount.toFixed(2)}</span>
+                    <span>${formatMoney(goal.current_amount)} / ${formatMoney(goal.target_amount)}</span>
                     <span>${goal.progress.toFixed(1)}%</span>
                 </div>
                 <div class="progress-bar">
@@ -340,7 +430,7 @@ async function loadBudgets() {
                     <div class="budget-header">
                         <div class="budget-category">${budget.category}</div>
                         <div class="budget-amounts">
-                            $${budget.spent.toFixed(2)} / $${budget.amount.toFixed(2)}
+                            ${formatMoney(budget.spent)} / ${formatMoney(budget.amount)}
                             (${budget.percentage.toFixed(1)}%)
                         </div>
                     </div>
@@ -351,8 +441,8 @@ async function loadBudgets() {
                         </div>
                     </div>
                     ${budget.remaining < 0 ? 
-                        `<p style="color: var(--danger); margin-top: 10px;">Over budget by $${Math.abs(budget.remaining).toFixed(2)}</p>` :
-                        `<p style="color: var(--success); margin-top: 10px;">$${budget.remaining.toFixed(2)} remaining</p>`
+                        `<p style="color: var(--danger); margin-top: 10px;">Over budget by ${formatMoney(Math.abs(budget.remaining))}</p>` :
+                        `<p style="color: var(--success); margin-top: 10px;">${formatMoney(budget.remaining)} remaining</p>`
                     }
                 </div>
             `;
@@ -491,7 +581,10 @@ function renderTrendChart(data) {
             },
             scales: {
                 y: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    ticks: {
+                        callback: (value) => formatMoney(value)
+                    }
                 }
             }
         }

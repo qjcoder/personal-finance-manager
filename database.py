@@ -2,6 +2,7 @@
 Database operations for Personal Finance Manager
 """
 import sqlite3
+import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
@@ -57,6 +58,15 @@ class Database:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS profile (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                data TEXT NOT NULL DEFAULT '{}',
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute("INSERT OR IGNORE INTO profile (id, data) VALUES (1, '{}')")
         
         conn.commit()
         conn.close()
@@ -99,6 +109,18 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('DELETE FROM transactions WHERE id = ?', (transaction_id,))
+        conn.commit()
+        conn.close()
+
+    def update_transaction(self, transaction_id: int, amount: float, category: str,
+                           description: str = '', date: str = None):
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            '''UPDATE transactions SET amount = ?, category = ?, description = ?, date = ?
+               WHERE id = ?''',
+            (amount, category, description or '', date or datetime.now().strftime('%Y-%m-%d'), transaction_id)
+        )
         conn.commit()
         conn.close()
     
@@ -310,3 +332,109 @@ class Database:
         
         conn.close()
         return budgets
+
+    def get_profile(self) -> Dict[str, Any]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT data FROM profile WHERE id = 1')
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return {}
+        try:
+            return json.loads(row['data'] or '{}')
+        except json.JSONDecodeError:
+            return {}
+
+    def save_profile(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        payload = json.dumps(data)
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO profile (id, data, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
+            (payload, datetime.now().isoformat())
+        )
+        conn.commit()
+        conn.close()
+        return data
+
+    def export_backup(self) -> Dict[str, Any]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM transactions ORDER BY id')
+        transactions = [dict(row) for row in cursor.fetchall()]
+        cursor.execute('SELECT * FROM savings_goals ORDER BY id')
+        goals = [dict(row) for row in cursor.fetchall()]
+        cursor.execute('SELECT category, amount, period FROM budgets ORDER BY id')
+        budgets = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return {
+            'app': 'Tarteeb',
+            'version': 1,
+            'exported_at': datetime.now().isoformat(),
+            'transactions': transactions,
+            'goals': goals,
+            'budgets': budgets,
+            'profile': self.get_profile()
+        }
+
+    def restore_backup(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(payload, dict) or (
+            'transactions' not in payload and 'goals' not in payload and 'profile' not in payload
+        ):
+            raise ValueError('Invalid backup file')
+        transactions = payload.get('transactions') or []
+        goals = payload.get('goals') or []
+        budgets = payload.get('budgets') or []
+        profile = payload.get('profile') or {}
+
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('DELETE FROM transactions')
+            cursor.execute('DELETE FROM savings_goals')
+            cursor.execute('DELETE FROM budgets')
+            for row in transactions:
+                cursor.execute(
+                    '''INSERT INTO transactions (type, amount, category, description, date)
+                       VALUES (?, ?, ?, ?, ?)''',
+                    (
+                        row.get('type'),
+                        float(row.get('amount') or 0),
+                        row.get('category') or 'Other',
+                        row.get('description') or '',
+                        row.get('date') or datetime.now().strftime('%Y-%m-%d')
+                    )
+                )
+            for row in goals:
+                cursor.execute(
+                    '''INSERT INTO savings_goals (name, target_amount, current_amount, deadline)
+                       VALUES (?, ?, ?, ?)''',
+                    (
+                        row.get('name') or 'Goal',
+                        float(row.get('target_amount') or 0),
+                        float(row.get('current_amount') or 0),
+                        row.get('deadline') or ''
+                    )
+                )
+            for row in budgets:
+                cursor.execute(
+                    '''INSERT OR REPLACE INTO budgets (category, amount, period)
+                       VALUES (?, ?, ?)''',
+                    (
+                        row.get('category'),
+                        float(row.get('amount') or 0),
+                        row.get('period') or 'monthly'
+                    )
+                )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            conn.close()
+            raise
+        conn.close()
+        if isinstance(profile, dict):
+            self.save_profile(profile)
+        return self.export_backup()
+
+
